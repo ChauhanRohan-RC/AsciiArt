@@ -1,6 +1,7 @@
 package ascii_art;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -14,23 +15,44 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.StringJoiner;
 
 import util.U;
 
 public class Svg {
 
+    private static int sTextSpanId;
+
+    private static void resetTextSpanId() {
+        sTextSpanId = 0;
+    }
+
+    private static int nextTextSpanId() {
+        return ++sTextSpanId;
+    }
+
+    @NotNull
+    private static Element createNewTextSpan(@NotNull Document doc) {
+        final Element tspan = doc.createElement("tspan");
+        tspan.setAttribute("id", "tspan" + nextTextSpanId());
+        return tspan;
+    }
+
     @NotNull
     private static Element createLineTextSpan(@NotNull Document doc, float x, float y) {
-        final Element line = doc.createElement("tspan");
+        final Element line = createNewTextSpan(doc);
         line.setAttribute("x", String.valueOf(x));
         line.setAttribute("y", String.valueOf(y));
+        line.setAttribute("sodipodi:role", "line");
         return line;
     }
 
     @NotNull
     private static Element createTextSpan(@NotNull Document doc, String content, int argb, boolean withFillOpacity) {
-        final Element span = doc.createElement("tspan");
+        final Element span = createNewTextSpan(doc);
         span.setAttribute("fill", U.hex(argb));
 
         if (withFillOpacity) {
@@ -39,6 +61,20 @@ public class Svg {
 
         span.appendChild(doc.createTextNode(content));
         return span;
+    }
+
+    @NotNull
+    private static String createStylesString(@Nullable Map<String, String> styleOptions) {
+        if (styleOptions == null || styleOptions.isEmpty())
+            return "";
+
+        final StringJoiner sj = new StringJoiner(";");
+
+        for (Map.Entry<String, String> e: styleOptions.entrySet()) {
+            sj.add(e.getKey() + ":" + e.getValue());
+        }
+
+        return sj.toString();
     }
 
     /**
@@ -52,17 +88,17 @@ public class Svg {
      * @param seq the character sequence
      * @param colors array of colors (argb's) for each character in the given sequence, <strong>EXCLUDING NEW LINE '\n' CHARACTERS</strong>
      * @param fontSizePx font size in pixels
-     * @param lineHeightRel line height relative to font size
-     * @param strokeWidthRel stroke width relative to font size
-     * @param width width of the svg, for ex. "210mm", "8.5in"
-     * @param height height of the svg, for ex. "297mm", "11in"
+     * @param lineHeightEm line height relative to font size (em units)
+     * @param width width of the svg in units (pt, px, mm, in), for ex. "210mm", "8.5in"
+     * @param height height of the svg in units (pt, px, mm, in), for ex. "297mm", "11in"
      * @param textX x position of textbox in pixels
      * @param textY y position of textbox in pixels
      * @param fontFamily font family
      * @param withFillOpacity true to include alpha channel of colors
      * @param pretty true to use indentation in output xml
+     * @param styleOptions Style options, like "stroke-width", "letter-spacing", "word-spacing", "font-style", "font-variant", "font-weight", "font-stretch"
      * */
-    public static String createSvg(@NotNull CharSequence seq, int @NotNull[] colors, float fontSizePx, float lineHeightRel, float strokeWidthRel, @NotNull String fontFamily, float textX, float textY, String width, String height, boolean withFillOpacity, boolean pretty) throws ParserConfigurationException, TransformerException {
+    public static String createSvg(@NotNull CharSequence seq, int @NotNull[] colors, float fontSizePx, float lineHeightEm, @NotNull String fontFamily, float textX, float textY, String width, String height, boolean withFillOpacity, boolean pretty, @Nullable Map<String, String> styleOptions) throws ParserConfigurationException, TransformerException {
         // 1.Create a Document
         final DocumentBuilder docBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
         final Document doc = docBuilder.newDocument();
@@ -71,21 +107,33 @@ public class Svg {
         final Element svg = doc.createElement("svg");
         svg.setAttribute("version", "1.1");
         svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        svg.setAttribute("xmlns:sodipodi", "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd");
         svg.setAttribute("width", width);
         svg.setAttribute("height", height);
         doc.appendChild(svg);
 
         // root text
         final Element text = doc.createElement("text");
+        text.setAttribute("id", "text1");
         text.setAttribute("x", String.valueOf(textX));
         text.setAttribute("y", String.valueOf(textY));
-        text.setAttribute("font-size", fontSizePx + "px");
-        text.setAttribute("stroke-width", String.valueOf(strokeWidthRel));
         text.setAttribute("font-family", fontFamily);
-        text.setAttribute("style", "line-height:" + lineHeightRel);
+        text.setAttribute("font-size", fontSizePx + "px");
         text.setAttribute("xml:space", "preserve");
 
+        final Map<String, String> styleOps = new HashMap<>();
+        styleOps.put("font-family", fontFamily);
+        styleOps.put("font-size", fontSizePx + "px");
+        styleOps.put("line-height", lineHeightEm + "em");
+        if (!(styleOptions == null || styleOptions.isEmpty())) {
+            styleOps.putAll(styleOptions);
+        }
+
+        text.setAttribute("style", createStylesString(styleOps));
+
         // for each line
+        resetTextSpanId();
+
         float lineY = textY;
         Element line = createLineTextSpan(doc, textX, lineY);   // First line
         final LinkedList<Element> lines = new LinkedList<>();
@@ -95,7 +143,7 @@ public class Svg {
         for (int i=0; i < seq.length(); i++) {
             char c = seq.charAt(i);
             if (c == '\n') {
-                lineY += fontSizePx * lineHeightRel;
+                lineY += fontSizePx * lineHeightEm;
                 line = createLineTextSpan(doc, textX, lineY);       // next line
                 lines.addLast(line);
             } else {
@@ -124,8 +172,23 @@ public class Svg {
     }
 
     @NotNull
-    public static String createSvg(@NotNull CharSequence seq, int @NotNull[] colors) throws ParserConfigurationException, TransformerException {
-        return createSvg(seq, colors, 10, 1.25f, 0.26458f, "Consolas", 50, 50, "210mm", "297mm", true, true);
+    public static String createSvg(@NotNull CharSequence seq, int @NotNull[] colors, @Nullable Map<String, String> styleOptions) throws ParserConfigurationException, TransformerException {
+        final Map<String, String> styles = new HashMap<>();
+        styles.put("font-style", "normal");
+        styles.put("font-variant", "normal");
+        styles.put("font-weight", "normal");
+        styles.put("font-stretch", "normal");
+        styles.put("stroke-width", "0.26458");
+        styles.put("letter-spacing", "-2px");
+//        styles.put("word-spacing", );
+
+        if (!(styleOptions == null || styleOptions.isEmpty())) {
+            styles.putAll(styleOptions);
+        }
+
+        // TODO: test svg
+//        return createSvg(seq, colors, 10, 0.7f, "Consolas", 50, 50, "210mm", "297mm", true, true, styles);
+        return createSvg(seq, colors, 10, 1.25f, "Consolas", 50, 50, "210mm", "297mm", true, true, styles);
     }
 
     public static void main(String[] args) {
@@ -133,6 +196,8 @@ public class Svg {
 //            System.out.println(createSvg("ABC\nDE", new int[]{ 0xFFE90000, 0xFF00D700, 0xFFE90000, 0xFF00D700, 0xFFE90000 }));
 //        } catch (Exception ignored) {
 //        }
+
+
     }
 
 }

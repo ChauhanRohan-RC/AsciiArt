@@ -79,6 +79,10 @@ public class U {
         return ((alpha & 0xff) << 24) | rgb255(argb);
     }
 
+    public static int argb255(int a, int r, int g, int b) {
+        return ((a & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+    }
+
     @NotNull
     public static String hex(int rgb) {
         return String.format("#%02x%02x%02x", red255(rgb), green255(rgb), blue255(rgb));

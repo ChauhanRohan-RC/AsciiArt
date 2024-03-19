@@ -15,6 +15,32 @@ import java.nio.file.Path;
 
 public class AsciiArt extends PApplet {
 
+    public static final boolean TRANSFORM_COLORS = false;
+
+    private final float @NotNull[] mTempHsb = new float[3];
+
+    private int transformColor(int argb) {
+//        Color.RGBtoHSB(U.red255(argb), U.green255(argb), U.blue255(argb), mTempHsb);
+
+//        mTempHsb[1] = 1;
+//        mTempHsb[2] = 1 - mTempHsb[2];
+
+//        return Color.HSBtoRGB(mTempHsb[0], mTempHsb[1], mTempHsb[2]);
+
+        return argb;
+    }
+
+    private void transformColors(int @NotNull[] colors) {
+        if (!TRANSFORM_COLORS)
+            return;
+
+        for (int i=0; i < colors.length; i++) {
+            colors[i] = transformColor(colors[i]);
+        }
+    }
+
+
+
     public record TextColors(@NotNull String textSequence, int @NotNull[] colors) {
     }
 
@@ -186,6 +212,9 @@ public class AsciiArt extends PApplet {
 ////        src.resize(width, height);
 
         o_src = loadImage(mInputImgPath.toString());
+        o_src.loadPixels();
+        transformColors(o_src.pixels);
+
         src = o_src.copy();
         setSrcScaleInternal(mSrcResScale, DEFAULT_SRC_RES_SCALE_PIXEL_TOLERANCE);
 
@@ -202,6 +231,7 @@ public class AsciiArt extends PApplet {
 
 
     private int mSaveFrameId = 1;
+
 
     private void saveCurrentFrame(boolean saveText, boolean saveSvg) {
         final String saveFileName = R.getName(mInputImgPath.getFileName().toString()).replace(R.IMAGE_ASCII_ART_INPUT_FILE_NAME_TOKEN_SUFFIX, "") + " shader-" + mShader.displayName + "-frame-" + mSaveFrameId;
@@ -222,7 +252,7 @@ public class AsciiArt extends PApplet {
                 final String svgFile = saveFileName + ".svg";
 
                 try {
-                    final String svgStr = Svg.createSvg(textColors.textSequence(), textColors.colors());
+                    final String svgStr = Svg.createSvg(textColors.textSequence(), textColors.colors(), null);
                     saveStrings(svgFile, new String[] { svgStr });
                     println("Svg saved to '" + svgFile + "'");
                 } catch (Exception exc) {
@@ -247,7 +277,7 @@ public class AsciiArt extends PApplet {
 
     @Nullable
     public TextColors updateDrawing(boolean returnTextAndColors) {
-        background(0);
+        background(255);
 
         pushMatrix();
 
@@ -529,7 +559,6 @@ public class AsciiArt extends PApplet {
 //
 //        }
     }
-
 
     public static void main(String[] args) {
         final Path input_img = R.IMAGE_ASCII_ART_INPUT;
