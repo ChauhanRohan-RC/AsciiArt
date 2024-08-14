@@ -1,0 +1,17 @@
+<component name="libraryTable">
+  <library name="processing.video-3.3.7">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/processing/video/gst1-java-core-1.4.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/processing/video/jna.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/processing/video/video.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <NATIVE>
+      <root url="file://$PROJECT_DIR$/lib/processing/video/windows-amd64" />
+      <root url="file://$PROJECT_DIR$/lib/processing/video/linux-amd64" />
+      <root url="file://$PROJECT_DIR$/lib/processing/video/macos-x86_64" />
+      <root url="file://$PROJECT_DIR$/lib/processing/video/macos-aarch64" />
+    </NATIVE>
+    <SOURCES />
+  </library>
+</component>
